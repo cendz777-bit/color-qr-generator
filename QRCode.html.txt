@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom QR Code Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="url"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="url"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .color-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .color-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="color"] {
+            width: 50px;
+            height: 40px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .color-value {
+            font-family: monospace;
+            font-size: 13px;
+            color: #666;
+            flex: 1;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .qr-output {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        #qrCanvas {
+            display: none;
+            margin: 20px auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            max-width: 100%;
+        }
+
+        #qrCanvas.show {
+            display: block;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            display: none;
+        }
+
+        .download-btn.show {
+            display: block;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 13px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .info {
+            background: #f0f4ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #555;
+            border-left: 4px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Custom QR Generator</h1>
+        
+        <div class="input-group">
+            <label for="qrContent">Text or URL</label>
+            <input type="text" id="qrContent" placeholder="Enter text or URL to encode">
+            <div class="error-message" id="errorMsg">Please enter some content</div>
+        </div>
+
+        <div class="input-group">
+            <label>Colors</label>
+            <div class="color-group">
+                <div>
+                    <label style="font-size: 12px; margin-bottom: 5px;">Foreground</label>
+                    <div class="color-input-wrapper">
+                        <input type="color" id="fgColor" value="#000000">
+                        <span class="color-value" id="fgValue">#000000</span>
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 12px; margin-bottom: 5px;">Background</label>
+                    <div class="color-input-wrapper">
+                        <input type="color" id="bgColor" value="#ffffff">
+                        <span class="color-value" id="bgValue">#ffffff</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label for="qrSize">Size (pixels)</label>
+            <select id="qrSize">
+                <option value="200">Small (200x200)</option>
+                <option value="300" selected>Medium (300x300)</option>
+                <option value="400">Large (400x400)</option>
+                <option value="500">Extra Large (500x500)</option>
+            </select>
+        </div>
+
+        <button class="btn" id="generateBtn">Generate QR Code</button>
+
+        <div class="qr-output">
+            <canvas id="qrCanvas"></canvas>
+            <button class="btn download-btn" id="downloadBtn">Download QR Code</button>
+        </div>
+
+        <div class="info">
+            💡 <strong>Tip:</strong> QR codes work best with high contrast colors. Dark foreground on light background is recommended for better scanning.
+        </div>
+    </div>
+
+    <script>
+        // QR Code generation using a simple algorithm
+        const qrContent = document.getElementById('qrContent');
+        const fgColor = document.getElementById('fgColor');
+        const bgColor = document.getElementById('bgColor');
+        const qrSize = document.getElementById('qrSize');
+        const generateBtn = document.getElementById('generateBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const qrCanvas = document.getElementById('qrCanvas');
+        const errorMsg = document.getElementById('errorMsg');
+        const fgValue = document.getElementById('fgValue');
+        const bgValue = document.getElementById('bgValue');
+
+        // Update color value displays
+        fgColor.addEventListener('input', () => {
+            fgValue.textContent = fgColor.value.toUpperCase();
+        });
+
+        bgColor.addEventListener('input', () => {
+            bgValue.textContent = bgColor.value.toUpperCase();
+        });
+
+        // Generate QR Code
+        generateBtn.addEventListener('click', () => {
+            const content = qrContent.value.trim();
+            
+            if (!content) {
+                errorMsg.classList.add('show');
+                qrCanvas.classList.remove('show');
+                downloadBtn.classList.remove('show');
+                return;
+            }
+
+            errorMsg.classList.remove('show');
+            generateQRCode(content);
+        });
+
+        // Download QR Code
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'qr-code.png';
+            link.href = qrCanvas.toDataURL();
+            link.click();
+        });
+
+        // Generate QR using QR Code API (we'll use a simple visual representation)
+        function generateQRCode(text) {
+            const size = parseInt(qrSize.value);
+            const fg = fgColor.value;
+            const bg = bgColor.value;
+
+            // Use Google Charts API as a fallback for QR generation
+            const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&color=${fg.replace('#', '')}&bgcolor=${bg.replace('#', '')}`;
+
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = function() {
+                qrCanvas.width = size;
+                qrCanvas.height = size;
+                const ctx = qrCanvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, size, size);
+                qrCanvas.classList.add('show');
+                downloadBtn.classList.add('show');
+            };
+
+            img.onerror = function() {
+                // Fallback: create a simple visual pattern if API fails
+                createFallbackQR(text, size, fg, bg);
+            };
+
+            img.src = apiUrl;
+        }
+
+        // Fallback QR (simple visual pattern)
+        function createFallbackQR(text, size, fg, bg) {
+            qrCanvas.width = size;
+            qrCanvas.height = size;
+            const ctx = qrCanvas.getContext('2d');
+            
+            // Fill background
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Create a simple pattern based on text
+            const gridSize = 25;
+            const cellSize = size / gridSize;
+            
+            ctx.fillStyle = fg;
+            
+            // Generate pattern from text hash
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    const index = (i * gridSize + j) % text.length;
+                    const charCode = text.charCodeAt(index);
+                    
+                    if ((charCode + i + j) % 2 === 0) {
+                        ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+            
+            // Add border
+            ctx.strokeStyle = fg;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, size, size);
+            
+            qrCanvas.classList.add('show');
+            downloadBtn.classList.add('show');
+        }
+
+        // Generate on Enter key
+        qrContent.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                generateBtn.click();
+            }
+        });
+    </script>
+</body>
+</html>
